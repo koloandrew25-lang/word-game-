@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word Guess Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #ffffff;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .game-card {
+      width: 100%;
+      max-width: 520px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      padding: 28px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 2rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      margin: 0 0 24px;
+      color: #cbd5e1;
+      font-size: 0.98rem;
+    }
+
+    .hint-box,
+    .status-box,
+    .score-box {
+      background: rgba(255, 255, 255, 0.07);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+    }
+
+    .label {
+      font-size: 0.85rem;
+      color: #93c5fd;
+      margin-bottom: 6px;
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .word-display {
+      text-align: center;
+      font-size: 2rem;
+      letter-spacing: 0.4rem;
+      margin: 18px 0 22px;
+      font-weight: bold;
+      word-break: break-word;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      outline: none;
+      font-size: 1rem;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      opacity: 0.95;
+    }
+
+    .guess-btn {
+      background: #22c55e;
+      color: white;
+    }
+
+    .new-btn {
+      width: 100%;
+      background: #3b82f6;
+      color: white;
+      margin-top: 6px;
+    }
+
+    .guesses {
+      margin-top: 10px;
+      color: #e2e8f0;
+      min-height: 24px;
+    }
+
+    .message {
+      font-weight: bold;
+      min-height: 24px;
+    }
+
+    .win {
+      color: #86efac;
+    }
+
+    .lose {
+      color: #fca5a5;
+    }
+
+    .neutral {
+      color: #f8fafc;
+    }
+
+    @media (max-width: 560px) {
+      .controls {
+        flex-direction: column;
+      }
+
+      .word-display {
+        font-size: 1.5rem;
+        letter-spacing: 0.25rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-card">
+    <h1>Word Guess Game</h1>
+    <p class="subtitle">Guess one letter at a time before you run out of attempts.</p>
+
+    <div class="hint-box">
+      <span class="label">Hint</span>
+      <div id="hint">Loading...</div>
+    </div>
+
+    <div class="score-box">
+      <span class="label">Score</span>
+      <div>Wins: <span id="wins">0</span> | Losses: <span id="losses">0</span> | Attempts Left: <span id="attempts">6</span></div>
+    </div>
+
+    <div class="word-display" id="wordDisplay">_ _ _ _ _</div>
+
+    <div class="controls">
+      <input
+        id="letterInput"
+        type="text"
+        maxlength="1"
+        placeholder="Enter a letter"
+        autocomplete="off"
+      />
+      <button class="guess-btn" id="guessBtn">Guess</button>
+    </div>
+
+    <div class="status-box">
+      <span class="label">Game Status</span>
+      <div class="message neutral" id="message">Start guessing.</div>
+      <div class="guesses">Used letters: <span id="usedLetters">None</span></div>
+    </div>
+
+    <button class="new-btn" id="newGameBtn">New Game</button>
+  </div>
+
+  <script>
+    const words = [
+      { word: "javascript", hint: "A popular language for web interactivity" },
+      { word: "browser", hint: "You are using one right now" },
+      { word: "netlify", hint: "A platform for deploying static websites" },
+      { word: "coding", hint: "Writing instructions for computers" },
+      { word: "puzzle", hint: "A game that tests problem-solving" },
+      { word: "planet", hint: "Earth is one of these" },
+      { word: "rocket", hint: "Used to travel into space" },
+      { word: "banana", hint: "A yellow fruit" }
+    ];
+
+    let selectedWord = "";
+    let selectedHint = "";
+    let guessedLetters = [];
+    let wrongGuesses = 0;
+    let maxWrongGuesses = 6;
+    let wins = 0;
+    let losses = 0;
+    let gameOver = false;
+
+    const hintEl = document.getElementById("hint");
+    const wordDisplayEl = document.getElementById("wordDisplay");
+    const attemptsEl = document.getElementById("attempts");
+    const messageEl = document.getElementById("message");
+    const usedLettersEl = document.getElementById("usedLetters");
+    const winsEl = document.getElementById("wins");
+    const lossesEl = document.getElementById("losses");
+    const letterInput = document.getElementById("letterInput");
+    const guessBtn = document.getElementById("guessBtn");
+    const newGameBtn = document.getElementById("newGameBtn");
+
+    function chooseWord() {
+      const randomItem = words[Math.floor(Math.random() * words.length)];
+      selectedWord = randomItem.word;
+      selectedHint = randomItem.hint;
+    }
+
+    function updateDisplay() {
+      const display = selectedWord
+        .split("")
+        .map(letter => (guessedLetters.includes(letter) ? letter.toUpperCase() : "_"))
+        .join(" ");
+
+      wordDisplayEl.textContent = display;
+      attemptsEl.textContent = maxWrongGuesses - wrongGuesses;
+      usedLettersEl.textContent = guessedLetters.length
+        ? guessedLetters.map(l => l.toUpperCase()).join(", ")
+        : "None";
+      hintEl.textContent = selectedHint;
+      winsEl.textContent = wins;
+      lossesEl.textContent = losses;
+    }
+
+    function setMessage(text, type = "neutral") {
+      messageEl.textContent = text;
+      messageEl.className = `message ${type}`;
+    }
+
+    function checkGameState() {
+      const allGuessed = selectedWord
+        .split("")
+        .every(letter => guessedLetters.includes(letter));
+
+      if (allGuessed) {
+        wins++;
+        gameOver = true;
+        updateDisplay();
+        setMessage("You won. The word was " + selectedWord.toUpperCase() + ".", "win");
+        return;
+      }
+
+      if (wrongGuesses >= maxWrongGuesses) {
+        losses++;
+        gameOver = true;
+        updateDisplay();
+        setMessage("You lost. The word was " + selectedWord.toUpperCase() + ".", "lose");
+      }
+    }
+
+    function handleGuess() {
+      if (gameOver) {
+        setMessage("Start a new game to continue.", "neutral");
+        return;
+      }
+
+      const input = letterInput.value.toLowerCase().trim();
+      letterInput.value = "";
+      letterInput.focus();
+
+      if (!/^[a-z]$/.test(input)) {
+        setMessage("Enter a single letter from A to Z.", "neutral");
+        return;
+      }
+
+      if (guessedLetters.includes(input)) {
+        setMessage("You already guessed that letter.", "neutral");
+        return;
+      }
+
+      guessedLetters.push(input);
+
+      if (!selectedWord.includes(input)) {
+        wrongGuesses++;
+        setMessage("Wrong guess.", "lose");
+      } else {
+        setMessage("Correct guess.", "win");
+      }
+
+      updateDisplay();
+      checkGameState();
+    }
+
+    function startNewGame() {
+      chooseWord();
+      guessedLetters = [];
+      wrongGuesses = 0;
+      gameOver = false;
+      setMessage("Start guessing.", "neutral");
+      updateDisplay();
+      letterInput.value = "";
+      letterInput.focus();
+    }
+
+    guessBtn.addEventListener("click", handleGuess);
+
+    letterInput.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        handleGuess();
+      }
+    });
+
+    newGameBtn.addEventListener("click", startNewGame);
+
+    startNewGame();
+  </script>
+</body>
+</html>
